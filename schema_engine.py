@@ -398,6 +398,16 @@ class SchemaEngine(SQLDatabase):
         return '\n'.join(field_info_str)
 
     def fields_category(self):
+        """「粗到细」过程第一步：为数据库中每个字段判定语义类别与维度/度量属性。
+
+        遍历所有表的所有字段，对每个字段：
+            1. 获取其基础类型分类（Number/String/DateTime/Bool/Other）；
+            2. 组装该字段的完整信息文本（含类型、主键、唯一、统计量、样例等）；
+            3. 调用 components.field_category 判定语义类别；
+            4. 若为日期时间字段，进一步推断最小时间颗粒度；
+            5. 若为枚举字段，重新采样其所有枚举候选值；
+            6. 将 category / dim_or_meas 写回 M-Schema。
+        """
         tables = self._mschema.tables
         for table_name in tables.keys():
             print("Table Name: ", table_name)
@@ -420,21 +430,28 @@ class SchemaEngine(SQLDatabase):
                 # 对于枚举类型的字段，获取它所有的枚举候选值
                 if category == self._type_engine.field_category_enum_label:
                     examples = self.get_column_value_examples(table_name, field_name)
-                    examples = [s for s in examples if len(str(examples)) > 0]
+                    # 过滤掉空值（注意：应判断单个元素 s，而非整个列表 examples）
+                    examples = [s for s in examples if s is not None and len(str(s)) > 0]
                     self._mschema.set_column_property(table_name, field_name, "examples", examples)
                 self._mschema.set_column_property(table_name, field_name, "category", res['category'])
                 self._mschema.set_column_property(table_name, field_name, "dim_or_meas", res['dim_or_meas'])
 
 
     def table_and_column_desc_generation(self, language: str='CN'):
-        """"
-        table and column description genration
+        """「细到粗」过程：生成表描述与列描述。
 
-        四种模式：
-        no_comment: 不带任何描述信息
-        origin: 跟数据库中保持一致
-        generation: 清除已有的描述信息，完全由模型生成
-        merge: 没有描述的生成描述信息；已经有描述信息的，不再生成
+        这是整个流程的第二阶段，先按 comment_mode 处理已有描述，再按
+        以下四步生成描述：
+            1. 理解数据库整体信息（understand_database）；
+            2. 按维度/度量分组，理解同组字段间的关系（作为补充信息）；
+            3. 对每个缺少描述的列生成列描述；
+            4. 若表缺少描述（原描述不足 10 字符），生成表描述。
+
+        comment_mode 四种模式：
+            no_comment: 不带任何描述信息（清空后直接返回）
+            origin:     跟数据库中保持一致（直接返回，不生成）
+            generation: 清除已有描述，完全由模型生成
+            merge:      没有描述的才生成；已有描述的保持不变
         """
         if self.comment_mode == 'origin':
             return

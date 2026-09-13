@@ -1,3 +1,14 @@
+"""命令行入口：支持串行/并行两种模式生成数据库描述。
+
+用法示例：
+    # 串行执行（默认）
+    python parallel_main.py --db_path ./book_1.sqlite --api_key YOUR_KEY
+
+    # 并行执行，使用 8 个工作线程
+    python parallel_main.py --parallel --max_workers 8 --db_path ./book_1.sqlite --api_key YOUR_KEY
+
+参数说明见下方 argparse 定义。
+"""
 import os
 import time
 import argparse
@@ -8,6 +19,7 @@ from parallel_schema_engine import ParallelSchemaEngine
 
 
 def main():
+    # 解析命令行参数
     parser = argparse.ArgumentParser(description="Process database schema with parallel or sequential execution")
     parser.add_argument('--parallel', action='store_true', help='Use parallel processing')
     parser.add_argument('--db_path', type=str, default='./book_1.sqlite', help='Path to the database file')
@@ -20,20 +32,20 @@ def main():
     parser.add_argument('--api_key', type=str, default='YOUR API KEY HERE.', help='DashScope API key')
     args = parser.parse_args()
 
-    # Initialize LLM
+    # 初始化 LLM
     dashscope_llm = DashScope(model_name=DashScopeGenerationModels.QWEN_PLUS, api_key=args.api_key)
 
-    # Get absolute path to database
+    # 获取数据库的绝对路径并建立连接
     db_abs_path = os.path.abspath(args.db_path)
     db_engine = create_engine(f'sqlite:///{db_abs_path}')
 
-    # Get database name from the file path
+    # 从文件路径中提取数据库名（去掉目录和后缀）
     db_name = os.path.splitext(os.path.basename(args.db_path))[0]
 
-    # Start timing
+    # 开始计时
     start_time = time.time()
 
-    # Choose between parallel and sequential processing
+    # 根据 --parallel 选择并行或串行引擎
     if args.parallel:
         print(f"Using parallel processing with {args.max_workers} workers")
         schema_engine_instance = ParallelSchemaEngine(
@@ -52,22 +64,22 @@ def main():
             comment_mode=args.comment_mode
         )
 
-    # Process the database schema
+    # 处理数据库 schema
     print("Categorizing fields...")
     schema_engine_instance.fields_category()
 
     print("Generating table and column descriptions...")
     schema_engine_instance.table_and_column_desc_generation()
 
-    # Save the result
+    # 保存结果
     mschema = schema_engine_instance.mschema
     mschema.save(args.output_json)
 
-    # Print the result
+    # 打印结果
     mschema_str = mschema.to_mschema()
     print(mschema_str)
 
-    # Print execution time
+    # 打印执行耗时
     end_time = time.time()
     elapsed_time = end_time - start_time
     print(f"Execution completed in {elapsed_time:.2f} seconds")

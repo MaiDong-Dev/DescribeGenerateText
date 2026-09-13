@@ -1,5 +1,13 @@
 class TypeEngine:
-    def __int__(self):
+    """类型引擎：集中管理各种数据库方言、字段类型、字段类别等常量与标签。
+
+    该类只提供只读属性（property），没有实例状态，因此构造函数为空。
+    它作为 SchemaEngine 的「类型字典」，负责把底层数据库的类型映射到
+    本项目的统一分类体系（Number/String/DateTime/Bool/Other，以及
+    Code/Enum/DateTime/Text/Measure 等语义类别）。
+    """
+
+    def __init__(self):
         pass
 
     @property

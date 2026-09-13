@@ -1,0 +1,16 @@
+# IDE 配置（PyCharm / IntelliJ）
+.idea/
+
+# CodeBuddy 本地数据
+.codebuddy/
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# 本地/生成的数据库与产物文件
+*.sqlite
+*.db
+book_1.json
+output_schema.json
+data_book_1/

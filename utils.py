@@ -59,29 +59,40 @@ def extract_sql_from_llm_response(llm_response: str) -> str:
 
 
 def examples_to_str(examples: list) -> list[str]:
-    """
-    from examples to a list of str
+    """把字段的取值样例统一转换成字符串列表，并过滤敏感/无意义值。
+
+    处理规则：
+    - 日期/时间类型：只保留一个样例（避免多个日期干扰描述生成）。
+    - Decimal：转为浮点数字符串。
+    - 邮箱/URL：视为敏感或噪声，直接丢弃整组样例。
+    - 其他非字符串（如 int/float）：保持不变，最后统一 str()。
+
+    注意：datetime.datetime 是 datetime.date 的子类，因此必须先判断
+    datetime 再判断 date，否则分支会被 date 提前命中（原代码顺序有误）。
     """
     values = examples
     for i in range(len(values)):
-        if isinstance(values[i], datetime.date):
-            values = [values[i]]
+        v = values[i]
+        if v is None:
+            continue
+        if isinstance(v, datetime.datetime):
+            # 时间戳类型，只保留一个样例
+            values = [v]
             break
-        elif isinstance(values[i], datetime.datetime):
-            values = [values[i]]
+        elif isinstance(v, datetime.date):
+            # 日期类型，只保留一个样例
+            values = [v]
             break
-        elif isinstance(values[i], decimal.Decimal):
-            values[i] = str(float(values[i]))
-        elif is_email(str(values[i])):
+        elif isinstance(v, decimal.Decimal):
+            values[i] = str(float(v))
+        elif is_email(str(v)):
+            # 邮箱属于隐私信息，丢弃整组
             values = []
             break
-        elif 'http://' in str(values[i]) or 'https://' in str(values[i]):
+        elif 'http://' in str(v) or 'https://' in str(v):
+            # URL 噪声，丢弃整组
             values = []
             break
-        elif values[i] is not None and not isinstance(values[i], str):
-            pass
-        elif values[i] is not None and '.com' in values[i]:
-            pass
 
     return [str(v) for v in values if v is not None and len(str(v)) > 0]
 
